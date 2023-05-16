@@ -1,0 +1,89 @@
+<!-- https://developers.portone.io/docs/ko/auth/guide/3 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- jQuery -->
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <!-- iamport.payment.js -->
+    <script type="text/javascript" src="https://cdn.iamport.kr/js/iamport.payment-1.2.0.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+    var IMP = window.IMP;
+    IMP.init("impXXXXXXXX");
+
+    async function getMerchantUid(amount) {
+      try {
+        const userRes = await axios({
+          url: "/user",
+          method: "post",
+        });
+        const user_id = userRes.data.id;
+        const orderRes = await axios({
+          url: "/order",
+          method: "post",
+          headers: { "Content-Type": "application/json" },
+          data: { amount, user_id },
+        });
+        return orderRes.data.id;
+      } catch(err) {
+        console.log(err);
+      }
+    }
+
+    async function requestPay() {
+      const amount = 1004;
+      const merchant_uid = await getMerchantUid(amount);
+      console.log(merchant_uid);
+
+      IMP.request_pay(
+        {
+          pg: "nice", // https://developers.portone.io/docs/ko/tip/pg-2
+          pay_method: "card",
+          merchant_uid,
+          name: "당근 10kg",
+          amount,
+          buyer_email: "Iamport@chai.finance",
+          buyer_name: "포트원 기술지원팀",
+          buyer_tel: "010-1234-5678",
+          buyer_addr: "서울특별시 강남구 삼성동",
+          buyer_postcode: "123-456",
+          m_redirect_url: 'https://2640-2001-4430-509d-177c-a18e-4514-fba7-2041.ngrok-free.app/portone-webhook', // https://developers.portone.io/docs/ko/auth/guide/4/redirect
+        },
+        // https://developers.portone.io/docs/ko/auth/guide/6
+        async requestPayResponse => {
+          const { success, imp_uid, merchant_uid, error_msg } = requestPayResponse;
+          if (!success) {
+            alert(`결제에 실패하였습니다. 에러 내용: ${error_msg}`);
+            return;
+          }
+          // 이전 단계에서 구현한 결제정보 사후 검증 API 호출
+          const res = await axios({
+            url: "/payments/complete",
+            method: "post",
+            headers: { "Content-Type": "application/json" },
+            data: { imp_uid, merchant_uid },
+          });
+          switch (res.data.status) {
+            case "vbankIssued":
+              // 가상계좌 발급 시 로직
+              console.log(res.data.message);
+              break;
+            case "success":
+              // 결제 성공 시 로직
+              console.log(res.data.message);
+              break;
+          }
+        }
+      );
+    }
+    </script>
+    <meta charset="UTF-8">
+    <title>Sample Payment</title>
+</head>
+
+<body>
+    <button onclick="requestPay()">결제하기</button>
+    <!-- 결제하기 버튼 생성 -->
+</body>
+
+</html>
