@@ -11,20 +11,41 @@
     var IMP = window.IMP;
     IMP.init("impXXXXXXXX");
 
-    async function getMerchantUid(amount) {
+    async function getUserId() {
       try {
-        const userRes = await axios({
+        const res = await axios({
           url: "/user",
           method: "post",
         });
-        const user_id = userRes.data.id;
-        const orderRes = await axios({
+        return res.data.id;
+      } catch(err) {
+        console.log(err);
+      }
+    }
+
+    async function getMerchantUid(user_id, amount) {
+      try {
+        const res = await axios({
           url: "/order",
           method: "post",
           headers: { "Content-Type": "application/json" },
           data: { amount, user_id },
         });
-        return orderRes.data.id;
+        return res.data.merchant_uid;
+      } catch(err) {
+        console.log(err);
+      }
+    }
+
+    async function getCustomerUid(user_id, period) {
+      try {
+        const res = await axios({
+          url: "/card",
+          method: "post",
+          headers: { "Content-Type": "application/json" },
+          data: { period, user_id },
+        });
+        return res.data.customer_uid;
       } catch(err) {
         console.log(err);
       }
@@ -32,14 +53,15 @@
 
     async function requestPay() {
       const amount = 1004;
-      const merchant_uid = await getMerchantUid(amount);
-      console.log(merchant_uid);
+      const userId = await getUserId();
+      const merchantUid = await getMerchantUid(userId, amount);
+      console.log({ merchantUid });
 
       IMP.request_pay(
         {
-          pg: "nice", // https://developers.portone.io/docs/ko/tip/pg-2
+          pg: "nice.{상점 ID}", // https://developers.portone.io/docs/ko/pg/payment-gateway/nice
           pay_method: "card",
-          merchant_uid,
+          merchant_uid: merchantUid,
           name: "당근 10kg",
           amount,
           buyer_email: "Iamport@chai.finance",
@@ -47,11 +69,11 @@
           buyer_tel: "010-1234-5678",
           buyer_addr: "서울특별시 강남구 삼성동",
           buyer_postcode: "123-456",
-          m_redirect_url: 'https://2640-2001-4430-509d-177c-a18e-4514-fba7-2041.ngrok-free.app/portone-webhook', // https://developers.portone.io/docs/ko/auth/guide/4/redirect
+          m_redirect_url: "https://421f-222-106-224-225.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
         },
         // https://developers.portone.io/docs/ko/auth/guide/6
         async requestPayResponse => {
-          const { success, imp_uid, merchant_uid, error_msg } = requestPayResponse;
+          const { success, error_msg, ...restUid } = requestPayResponse;
           if (!success) {
             alert(`결제에 실패하였습니다. 에러 내용: ${error_msg}`);
             return;
@@ -61,17 +83,61 @@
             url: "/payments/complete",
             method: "post",
             headers: { "Content-Type": "application/json" },
-            data: { imp_uid, merchant_uid },
+            data: { ...restUid },
           });
+          console.log({ ...res.data });
           switch (res.data.status) {
             case "vbankIssued":
               // 가상계좌 발급 시 로직
-              console.log(res.data.message);
+              alert(res.data.message);
               break;
             case "success":
               // 결제 성공 시 로직
-              console.log(res.data.message);
+              alert(res.data.message);
               break;
+          }
+        }
+      );
+    }
+
+    async function requestBillingKey() {
+      const period = 12;
+      const userId = await getUserId();
+      const customerUid = await getCustomerUid(userId, period);
+      console.log({ customerUid });
+
+      IMP.request_pay(
+        {
+          pg: "tosspayments.{MID}", // https://developers.portone.io/docs/ko/pg/payment-gateway/newtoss/readme#3-%EA%B2%B0%EC%A0%9C-%EC%9A%94%EC%B2%AD%ED%95%98%EA%B8%B0, 비인증 결제창 요청
+          pay_method: "card", // "card"만 지원됩니다.
+          name: "최초인증결제",
+          amount: 0, // 실제 승인은 발생되지 않고 오직 빌링키만 발급됩니다.
+          customer_uid: customerUid, // 필수 입력.
+          buyer_email: "test@portone.io",
+          buyer_name: "포트원",
+          buyer_tel: "02-1234-1234",
+          m_redirect_url: "https://421f-222-106-224-225.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
+          customer_id: userId, // 가맹점이 회원에게 부여한 고유 ID
+        },
+        // https://developers.portone.io/docs/ko/auth/guide-1/bill/pg
+        async requestPayResponse => {
+          const { success, error_msg, ...restUid } = requestPayResponse;
+          if (!success) {
+            alert(`결제에 실패하였습니다. 에러 내용: ${error_msg}`);
+            return;
+          }
+          // 이전 단계에서 구현한 결제정보 사후 검증 API 호출
+          const res = await axios({
+            url: "/billings",
+            method: "post",
+            headers: { "Content-Type": "application/json" },
+            data: { user_id: userId, ...restUid },
+          });
+          console.log({ ...res.data });
+          if (rsp.success) {
+            alert("빌링키 발급 성공");
+          } else {
+            alert("빌링키 발급 실패");
           }
         }
       );
@@ -82,8 +148,21 @@
 </head>
 
 <body>
-    <button onclick="requestPay()">결제하기</button>
-    <!-- 결제하기 버튼 생성 -->
+    <table>
+        <th>PG사</th>
+        <th></th>
+        <th></th>
+        <tr>
+            <th>nice</th>
+            <th>인증결제</th>
+            <td><button onclick="requestPay()">결제 요청</button></td>
+        </tr>
+        <tr>
+            <th>tosspay</th>
+            <th>비 인증결제</th>
+            <td><button onclick="requestBillingKey()">빌링키 결제 요청</button></td>
+        </tr>
+    </table>
 </body>
 
 </html>

@@ -2,14 +2,14 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const axios = require("axios");
 const mongoose = require("mongoose");
-const { User, Order} = require("./models");
+const { User, Card, Order } = require("./models");
 
 const app = express();
 const port = 3000;
 
-const DATABASE_URI = 'mongodb://mongoadmin:secret@localhost:27017/payment?authSource=admin'
+const DATABASE_URI = "mongodb://mongoadmin:secret@localhost:27017/payment?authSource=admin"
 mongoose.connect(DATABASE_URI)
-  .then(() => console.log('Successfully connected to mongodb'))
+  .then(() => console.log("Successfully connected to mongodb"))
   .catch(e => console.error(e));
 
 app.use(bodyParser.json());
@@ -35,17 +35,41 @@ app.post("/order", async (req, res) => {
   try
   {
     const { amount, user_id } = req.body;
-    merchantUid = `mid_${new Date().getTime()}`;
 
     const order = new Order({
-      _id: merchantUid,
+      _id: `mid_${Date.now()}`,
       amount,
-      user: user_id
+      user: user_id,
     });
     await order.save();
+
     return res
       .status(200)
-      .json({id: order._id});
+      .json({
+        merchant_uid: order._id,
+      });
+  } catch (e) {
+    res.status(400).send(e);
+  }
+})
+
+app.post("/card", async (req, res) => {
+  try
+  {
+    const { period, user_id } = req.body;
+
+    const card = new Card({
+      _id: `cid_${Date.now()}`,
+      period,
+      user: user_id,
+    });
+    await card.save();
+
+    return res
+      .status(200)
+      .json({
+        customer_uid: card._id,
+      });
   } catch (e) {
     res.status(400).send(e);
   }
@@ -78,7 +102,34 @@ async function getPaymentData(imp_uid, access_token) {
     // 인증 토큰 Authorization header에 추가
     headers: {"Authorization": access_token}
   });
-  return paymentData.data.response; // 조회한 결제 정보
+  return paymentData.data; // 조회한 결제 정보
+}
+
+async function requestPayment(customer_uid, access_token, user_id) {
+  const card = await Card.findById(customer_uid);
+
+  const amount = 8900;
+  const order = new Order({
+    _id: `mid_${Date.now()}`,
+    amount,
+    card: card._id,
+    user: user_id,
+  });
+  await order.save();
+
+  const paymentResult = await axios({
+    url: `https://api.iamport.kr/subscribe/payments/again`,
+    method: "post",
+    // 인증 토큰을 Authorization header에 추가
+    headers: {"Authorization": access_token},
+    data: {
+      customer_uid,
+      merchant_uid: order._id, // 새로 생성한 결제(재결제)용 주문 번호
+      amount,
+      name: "월간 이용권 정기결제"
+    }
+  });
+  return paymentResult.data;
 }
 
 // https://developers.portone.io/docs/ko/auth/guide/5/post
@@ -93,7 +144,7 @@ app.post("/payments/complete", async (req, res) => {
     const accessToken = await getAccessToken();
 
     // imp_uid로 포트원 서버에서 결제 정보 조회
-    const paymentData = await getPaymentData(imp_uid, accessToken) // 조회한 결제 정보
+    const { code, message, response: paymentData } = await getPaymentData(imp_uid, accessToken) // 조회한 결제 정보
     // ...
     // DB에서 결제되어야 하는 금액 조회
     const order = await Order.findById(paymentData.merchant_uid);
@@ -143,7 +194,7 @@ app.post("/portone-webhook", async (req, res) => {
     const accessToken = await getAccessToken();
 
     // imp_uid로 포트원 서버에서 결제 정보 조회
-    const paymentData = await getPaymentData(imp_uid, accessToken) // 조회한 결제 정보
+    const { code, message, response: paymentData } = await getPaymentData(imp_uid, accessToken) // 조회한 결제 정보
     // ...
     // DB에서 결제되어야 하는 금액 조회
     const order = await Order.findById(paymentData.merchant_uid);
@@ -170,6 +221,35 @@ app.post("/portone-webhook", async (req, res) => {
       }
     } else { // 결제금액 불일치. 위/변조 된 결제
       throw {status: "forgery", message: "위조된 결제시도"};
+    }
+  } catch (e) {
+    res.status(400).send(e);
+  }
+});
+
+// https://developers.portone.io/docs/ko/auth/guide-1/bill/pg#step-03-%EA%B2%B0%EC%A0%9C-%EC%9A%94%EC%B2%AD%ED%95%98%EA%B8%B0
+// "/billings"에 대한 POST 요청을 처리
+app.post("/billings", async (req, res) => {
+  console.log("/billings", req.body);
+  try {
+    // req의 body에서 imp_uid, customer_uid 추출
+    const { user_id, customer_uid } = req.body;
+
+    // 액세스 토큰(access token) 발급 받기
+    const accessToken = await getAccessToken();
+    // ...
+    // 결제(재결제) 요청
+    const { code, message, response: paymentResult } = await requestPayment(customer_uid, accessToken, user_id);
+    // ...
+    if (code === 0) { // 카드사 통신에 성공(실제 승인 성공 여부는 추가 판단이 필요함)
+      if ( paymentResult.status === "paid" ) { // 카드 정상 승인
+        res.send({ status: "success", message: "비승인 결제 성공" });
+      } else { //카드 승인 실패 (예: 고객 카드 한도초과, 거래정지카드, 잔액부족 등)
+        // status : failed 로 수신됨
+        res.send({ status: paymentResult.status, message: "비승인 결제 실패"});
+      }
+    } else { // 카드사 요청에 실패 (paymentResult is null)
+      res.send({ status: message, message: "비승인 요청 실패" });
     }
   } catch (e) {
     res.status(400).send(e);

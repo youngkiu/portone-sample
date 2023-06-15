@@ -3,8 +3,8 @@
 ## 실행준비
 
 - Domain
-  - `$ ./ngrok http 3000`로 Local WAS 도메인을 확보합니다. ex) https://2640-2001-4430-509d-177c-a18e-4514-fba7-2041.ngrok-free.app
-  - 결제알림(Webhook)을 등록합니다. ex) https://2640-2001-4430-509d-177c-a18e-4514-fba7-2041.ngrok-free.app/portone-webhook
+  - `$ ./ngrok http 3000`로 Local WAS 도메인을 확보합니다. ex) https://421f-222-106-224-225.ngrok-free.app
+  - 결제알림(Webhook)을 등록합니다. ex) https://421f-222-106-224-225.ngrok-free.app/portone-webhook
     - https://admin.portone.io/integration?tab=webhook
       <br><img alt="webhook.png" src="images/webhook.png" width="600"/>
   - sample.html, `m_redirect_url:`에 Webhook Endpoint URL을 적습니다.

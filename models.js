@@ -14,6 +14,23 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model("User", UserSchema);
 
+const CardSchema = new mongoose.Schema({
+  _id: {
+    type: String,
+    required: true,
+  },
+  period: {
+    type: Number,
+    required: true,
+  },
+  user: {
+    type: Schema.ObjectId,
+    ref: "User",
+    required: true,
+  },
+});
+const Card = mongoose.model("Card", CardSchema);
+
 const OrderSchema = new mongoose.Schema({
   _id: {
     type: String,
@@ -28,7 +45,11 @@ const OrderSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  card: {
+    type: String,
+    ref: "Card",
+  },
 });
 const Order = mongoose.model("Order", OrderSchema);
 
-module.exports = { User, Order };
+module.exports = { User, Card, Order };
