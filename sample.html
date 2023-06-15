@@ -69,7 +69,7 @@
           buyer_tel: "010-1234-5678",
           buyer_addr: "서울특별시 강남구 삼성동",
           buyer_postcode: "123-456",
-          m_redirect_url: "https://421f-222-106-224-225.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
+          m_redirect_url: "https://cfe3-112-151-155-62.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
         },
         // https://developers.portone.io/docs/ko/auth/guide/6
         async requestPayResponse => {
@@ -101,7 +101,7 @@
     }
 
     async function requestBillingKey() {
-      const period = 12;
+      const period = 60;
       const userId = await getUserId();
       const customerUid = await getCustomerUid(userId, period);
       console.log({ customerUid });
@@ -116,31 +116,67 @@
           buyer_email: "test@portone.io",
           buyer_name: "포트원",
           buyer_tel: "02-1234-1234",
-          m_redirect_url: "https://421f-222-106-224-225.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
+          m_redirect_url: "https://cfe3-112-151-155-62.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
           customer_id: userId, // 가맹점이 회원에게 부여한 고유 ID
         },
         // https://developers.portone.io/docs/ko/auth/guide-1/bill/pg
-        async requestPayResponse => {
-          const { success, error_msg, ...restUid } = requestPayResponse;
-          if (!success) {
-            alert(`결제에 실패하였습니다. 에러 내용: ${error_msg}`);
-            return;
-          }
-          // 이전 단계에서 구현한 결제정보 사후 검증 API 호출
-          const res = await axios({
-            url: "/billings",
-            method: "post",
-            headers: { "Content-Type": "application/json" },
-            data: { user_id: userId, ...restUid },
-          });
-          console.log({ ...res.data });
+        async rsp => {
+          console.log({ ...rsp });
+          const { success, error_msg, ...restUid } = rsp;
           if (rsp.success) {
+            const res = await axios({
+              url: "/billings/complete",
+              method: "post",
+              headers: { "Content-Type": "application/json" },
+              data: { user_id: userId, ...restUid },
+            });
+            console.log({ ...res.data });
             alert("빌링키 발급 성공");
           } else {
             alert("빌링키 발급 실패");
           }
         }
       );
+    }
+
+    async function requestPayWithBillingKey() {
+      const { data: { user_id, customer_uid } } = await axios({
+        url: "/billings",
+        method: "get",
+      });
+
+      const res = await axios({
+        url: "/billings",
+        method: "post",
+        headers: { "Content-Type": "application/json" },
+        data: { user_id, customer_uid },
+      });
+      console.log({ ...res.data });
+      if (res.data.status === "success") {
+        alert("빌링키 결제 성공");
+      } else {
+        alert("빌링키 결제 실패");
+      }
+    }
+
+    async function schedulePay() {
+      const { data: { user_id, customer_uid } } = await axios({
+        url: "/billings",
+        method: "get",
+      });
+
+      const res = await axios({
+        url: "/payments/schedule",
+        method: "post",
+        headers: { "Content-Type": "application/json" },
+        data: { user_id, customer_uid },
+      });
+      console.log({ ...res.data });
+      if (res.data.status === "success") {
+        alert("빌링키 예약 성공");
+      } else {
+        alert("빌링키 예약 실패");
+      }
     }
     </script>
     <meta charset="UTF-8">
@@ -150,8 +186,6 @@
 <body>
     <table>
         <th>PG사</th>
-        <th></th>
-        <th></th>
         <tr>
             <th>nice</th>
             <th>인증결제</th>
@@ -160,7 +194,9 @@
         <tr>
             <th>tosspay</th>
             <th>비 인증결제</th>
-            <td><button onclick="requestBillingKey()">빌링키 결제 요청</button></td>
+            <td><button onclick="requestBillingKey()">빌링키 요청</button></td>
+            <td><button onclick="requestPayWithBillingKey()">결제 요청</button></td>
+            <td><button onclick="schedulePay()">1분 후 결제 예약</button></td>
         </tr>
     </table>
 </body>

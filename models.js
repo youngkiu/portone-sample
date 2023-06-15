@@ -23,6 +23,12 @@ const CardSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  paid_at: {
+    type: Number,
+  },
+  status: {
+    type: String,
+  },
   user: {
     type: Schema.ObjectId,
     ref: "User",
@@ -39,6 +45,12 @@ const OrderSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
+  },
+  paid_at: {
+    type: Number,
+  },
+  status: {
+    type: String,
   },
   user: {
     type: Schema.ObjectId,

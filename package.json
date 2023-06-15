@@ -1,6 +1,6 @@
 {
   "name": "portone-sample",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "PortOne Sample Project",
   "main": "app.js",
   "scripts": {
