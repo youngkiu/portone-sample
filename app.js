@@ -88,6 +88,7 @@ async function getAccessToken() {
       imp_secret: "tGE........." // REST API Secret
     }
   });
+  console.log( getToken.request.res.responseUrl, { ...getToken.data });
   const { access_token } = getToken.data.response; // 인증 토큰
   return access_token;
 }
@@ -102,6 +103,7 @@ async function getPaymentData(imp_uid, access_token) {
     // 인증 토큰 Authorization header에 추가
     headers: { "Authorization": access_token }
   });
+  console.log( paymentData.request.res.responseUrl, { ...paymentData.data });
   return paymentData.data; // 조회한 결제 정보
 }
 
@@ -129,6 +131,7 @@ async function requestPayment(customer_uid, access_token, user_id) {
       name: "월간 이용권 정기결제"
     }
   });
+  console.log( paymentResult.request.res.responseUrl, { ...paymentResult.data });
   return paymentResult.data;
 }
 
@@ -164,6 +167,7 @@ async function reservePayment(customer_uid, access_token, user_id) {
       ],
     }
   });
+  console.log(paymentResult.request.res.responseUrl, { ...paymentResult.data });
   return paymentResult.data;
 }
 
@@ -267,6 +271,7 @@ app.post("/payments/complete", async (req, res) => {
   }
 });
 
+// https://developers.portone.io/docs/ko/auth/guide-1/bill/pg
 app.post("/billings/complete", async (req, res) => {
   console.log(req.url, req.body);
   try {

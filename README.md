@@ -29,8 +29,10 @@
   - `m_redirect_url:`: https://developers.portone.io/docs/ko/auth/guide/4/redirect
   - `impXXXXXXXX`: 가맹점 식별코드
 - app.js
-  - `/payments/complete`: https://developers.portone.io/docs/ko/auth/guide/5/post
   - `/portone-webhook`: https://developers.portone.io/docs/ko/result/webhook
+  - `/payments/complete`: https://developers.portone.io/docs/ko/auth/guide/5/post
+  - `/billings/complete`, `/billings`: https://developers.portone.io/docs/ko/auth/guide-1/bill/pg
+  - `/payments/schedule`: https://developers.portone.io/docs/ko/auth/guide-1/undefined
   - `getAccessToken()`
     - `imp_key:`: REST API Key
     - `imp_secret:`: REST API Secret 
