@@ -5,7 +5,7 @@
     <!-- jQuery -->
     <script type="text/javascript" src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
     <!-- iamport.payment.js -->
-    <script type="text/javascript" src="https://cdn.iamport.kr/js/iamport.payment-1.2.0.js"></script>
+    <script type="text/javascript" src="https://cdn.iamport.kr/v1/iamport.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
     var IMP = window.IMP;
@@ -37,13 +37,13 @@
       }
     }
 
-    async function getCustomerUid(user_id, period) {
+    async function getCustomerUid(pg, user_id, period) {
       try {
         const res = await axios({
           url: "/card",
           method: "post",
           headers: { "Content-Type": "application/json" },
-          data: { period, user_id },
+          data: { pg, period, user_id },
         });
         return res.data.customer_uid;
       } catch(err) {
@@ -69,7 +69,7 @@
           buyer_tel: "010-1234-5678",
           buyer_addr: "서울특별시 강남구 삼성동",
           buyer_postcode: "123-456",
-          m_redirect_url: "https://cfe3-112-151-155-62.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
+          m_redirect_url: "https://8731-222-106-224-225.ngrok-free.app/portone-webhook", // https://developers.portone.io/docs/ko/auth/guide/4/redirect
         },
         // https://developers.portone.io/docs/ko/auth/guide/6
         async requestPayResponse => {
@@ -100,10 +100,10 @@
       );
     }
 
-    async function requestBillingKey() {
+    async function requestBillingKeyofTosspay() {
       const period = 60;
       const userId = await getUserId();
-      const customerUid = await getCustomerUid(userId, period);
+      const customerUid = await getCustomerUid("tosspay", userId, period);
       console.log({ customerUid });
 
       IMP.request_pay(
@@ -139,17 +139,20 @@
       );
     }
 
-    async function requestPayWithBillingKey() {
+    async function requestPayWithBillingKey(pg, currency) {
       const { data: { user_id, customer_uid } } = await axios({
         url: "/billings",
         method: "get",
+        params: {
+          pg,
+        }
       });
 
       const res = await axios({
         url: "/billings",
         method: "post",
         headers: { "Content-Type": "application/json" },
-        data: { user_id, customer_uid },
+        data: { user_id, customer_uid, currency },
       });
       console.log({ ...res.data });
       if (res.data.status === "success") {
@@ -159,10 +162,54 @@
       }
     }
 
+    async function requestBillingKeyOfPaypal() {
+      const period = 60;
+      const userId = await getUserId();
+      const merchantUid = await getMerchantUid(userId, 0);
+      const customerUid = await getCustomerUid("paypal", userId, period);
+      console.log({ customerUid });
+
+      IMP.loadUI(
+        "paypal-rt",
+        {
+          pg: "paypal_v2", // https://developers.portone.io/docs/ko/pg/payment-gateway/rt#loadui-%EC%9A%94%EC%B2%AD-%EA%B0%9D%EC%B2%B4
+          name: "카카오페이로 등록",
+          pay_method: "paypal",
+          merchant_uid: merchantUid, // 주문 번호
+          customer_uid: customerUid, // [필수 입력] 빌링키와 1:1 매핑되는 UUID
+          customer_id: userId, // 빌링키 발급 수단을 특정하는 고유 번호
+          notice_url: "https://8731-222-106-224-225.ngrok-free.app/portone-webhook",
+          custom_data: {
+            merchant_uid: merchantUid,
+            customer_uid: customerUid
+          }
+        },
+        async rsp => {
+          console.log({ ...rsp });
+          const { imp_uid, merchant_uid, customer_uid } = rsp;
+          if (merchant_uid === merchantUid && customer_uid === customerUid) {
+            const res = await axios({
+              url: "/billings/complete",
+              method: "post",
+              headers: { "Content-Type": "application/json" },
+              data: { user_id: userId, ...rsp, status: 'paid' },
+            });
+            console.log({ ...res.data });
+            alert("빌링키 발급 성공");
+          } else {
+            alert("빌링키 발급 실패");
+          }
+        }
+      );
+    }
+
     async function schedulePay() {
       const { data: { user_id, customer_uid } } = await axios({
         url: "/billings",
         method: "get",
+        params: {
+          pg: "tosspay"
+        }
       });
 
       const res = await axios({
@@ -185,20 +232,30 @@
 
 <body>
     <table>
+        <th></th>
         <th>PG사</th>
         <tr>
-            <th>nice</th>
             <th>인증결제</th>
+            <th>nice</th>
             <td><button onclick="requestPay()">결제 요청</button></td>
         </tr>
         <tr>
+            <th rowspan="2">비 인증결제</th>
             <th>tosspay</th>
-            <th>비 인증결제</th>
-            <td><button onclick="requestBillingKey()">빌링키 요청</button></td>
-            <td><button onclick="requestPayWithBillingKey()">결제 요청</button></td>
+            <td><button onclick="requestBillingKeyofTosspay()">빌링키 요청</button></td>
+            <td><button onclick="requestPayWithBillingKey('tosspay', 'KRW')">결제 요청</button></td>
             <td><button onclick="schedulePay()">1분 후 결제 예약</button></td>
         </tr>
+        <tr>
+            <th>paypal</th>
+            <td><button onclick="requestBillingKeyOfPaypal()">빌링키 요청</button></td>
+            <td><button onclick="requestPayWithBillingKey('paypal', 'USD')">결제 요청</button></td>
+        </tr>
     </table>
+    <!-- https://developers.portone.io/docs/ko/pg/payment-gateway/rt#%ED%8E%98%EC%9D%B4%ED%8C%94-rt-%EB%B2%84%ED%8A%BC%EC%9D%B4-%EB%B3%B4%EC%9D%B4%EC%A7%80-%EC%95%8A%EC%9D%84-%EB%95%8C -->
+    <div class="portone-ui-container" data-portone-ui-type="paypal-rt">
+        <!-- 3. 여기에 페이팔 버튼이 생성됩니다. -->
+    </div>
 </body>
 
 </html>

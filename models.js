@@ -19,6 +19,10 @@ const CardSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  pg: {
+    type: String,
+    required: true,
+  },
   period: {
     type: Number,
     required: true,
