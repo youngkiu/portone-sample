@@ -168,7 +168,7 @@
       const merchantUid = await getMerchantUid(userId, 0);
       const customerUid = await getCustomerUid("paypal", userId, period);
       console.log({ customerUid });
-
+      // https://developers.portone.io/docs/ko/pg/payment-gateway/rt
       IMP.loadUI(
         "paypal-rt",
         {

@@ -161,7 +161,7 @@ async function reservePayment(customer_uid, access_token, user_id) {
       schedules: [
         {
           merchant_uid: order._id, // 주문 번호
-          schedule_at: Date.now() + card.period * 1000, // 결제 시도 시각 in Unix Time Stamp. 예: 다음 달 1일
+          schedule_at: Math.round(Date.now() / 1000) + card.period, // 결제 시도 시각 in Unix Time Stamp. 예: 다음 달 1일
           amount,
           name: "월간 이용권 정기결제",
           buyer_name: "홍길동",
