@@ -4,7 +4,7 @@
 
 - Domain
   - `$ ./ngrok http 3000`로 Local WAS 도메인을 확보합니다. ex) https://8731-222-106-224-225.ngrok-free.app
-  - 결제알림(Webhook)을 등록합니다. ex) https://8731-222-106-224-225.ngrok-free.app/portone-webhook
+  - 결제알림(Webhook)을 등록합니다. ex) https://d4e7-222-106-224-225.ngrok-free.app/portone-webhook
     - https://admin.portone.io/integration?tab=webhook
       <br><img alt="webhook.png" src="images/webhook.png" width="600"/>
   - sample.html, `m_redirect_url:`에 Webhook Endpoint URL을 적습니다.
@@ -53,4 +53,5 @@ MERCHANT_ID=impXXXXXXXX  # 가맹점 식별코드
 IMP_APIKEY=250......     # REST API키
 IMP_SECRET=tGE.........  # REST API Secret
 DATABASE_URI=schema://user:pass@host:port/db
+MID=xxxxxtestxx4         # PG상점아이디 (MID)
 ```
