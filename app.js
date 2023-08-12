@@ -106,8 +106,20 @@ async function getPaymentData(imp_uid, access_token) {
     // 인증 토큰 Authorization header에 추가
     headers: { "Authorization": access_token }
   });
-  console.log( paymentData.request.res.responseUrl, { ...paymentData.data });
+  console.log( paymentData.config.url, { ...paymentData.data });
   return paymentData.data; // 조회한 결제 정보
+}
+
+// https://developers.portone.io/docs/ko/api/billing-key-api/get-billing-key-api
+async function getBillingKey(customer_uid, access_token) {
+  const billingKeyResult = await axios({
+    url: `https://api.iamport.kr/subscribe/customers/${customer_uid}`,
+    method: "get",
+    // 인증 토큰을 Authorization header에 추가
+    headers: { 'Authorization': access_token }
+  });
+  console.log( billingKeyResult.config.url, { ...billingKeyResult.data });
+  return billingKeyResult.data;
 }
 
 async function requestPayment(customer_uid, access_token, user_id, currency) {
@@ -124,7 +136,7 @@ async function requestPayment(customer_uid, access_token, user_id, currency) {
 
   const paymentResult = await axios({
     url: `https://api.iamport.kr/subscribe/payments/again`,
-    method: "post",
+    method: 'post',
     // 인증 토큰을 Authorization header에 추가
     headers: { "Authorization": access_token },
     data: {
@@ -135,7 +147,7 @@ async function requestPayment(customer_uid, access_token, user_id, currency) {
       name: "월간 이용권 정기결제"
     }
   });
-  console.log( paymentResult.request.res.responseUrl, { ...paymentResult.data });
+  console.log( paymentResult.config.url, { ...paymentResult.data });
   return paymentResult.data;
 }
 
@@ -171,7 +183,7 @@ async function reservePayment(customer_uid, access_token, user_id) {
       ],
     }
   });
-  console.log(paymentResult.request.res.responseUrl, { ...paymentResult.data });
+  console.log(paymentResult.config.url, { ...paymentResult.data });
   return paymentResult.data;
 }
 
@@ -293,6 +305,12 @@ app.post("/billings/complete", async (req, res) => {
   try {
     // req의 body에서 customer_uid 추출
     const { customer_uid, paid_at, status } = req.body;
+
+    // 액세스 토큰(access token) 발급 받기
+    const accessToken = await getAccessToken();
+
+    // customer_uid로 포트원 서버에서 결제 정보 조회
+    const { code, message, response: billingKeyData } = await getBillingKey(customer_uid, accessToken);
 
     // 빌링키 검증하기
     // DB에서 customer_uid 조회
